@@ -1,0 +1,93 @@
+import cv2
+import numpy as np
+import time
+import speech_recognition as sr
+from picamera2 import Picamera2
+import threading
+import os
+import subprocess
+
+class SmartGlasses:
+    def __init__(self):
+        # Initialize the camera
+        self.camera = Picamera2()
+        # Configure camera for preview
+        preview_config = self.camera.create_preview_configuration()
+        self.camera.configure(preview_config)
+        
+        # Initialize speech recognition
+        self.recognizer = sr.Recognizer()
+        self.microphone = sr.Microphone()
+        
+        # Flag to control camera stream
+        self.running = False
+        
+    def start_camera(self):
+        """Start the camera and begin processing frames"""
+        self.camera.start()
+        self.running = True
+        
+        while self.running:
+            # Capture frame
+            frame = self.camera.capture_array()
+            
+            # Basic image processing could be added here
+            # For example, detecting objects, faces, or text
+            
+            # Small delay to prevent overwhelming the system
+            time.sleep(0.1)
+            
+    def listen_for_commands(self):
+        """Listen for voice commands and process them"""
+        print("Listening for commands...")
+        
+        while self.running:
+            try:
+                with self.microphone as source:
+                    self.recognizer.adjust_for_ambient_noise(source)
+                    audio = self.recognizer.listen(source)
+                    
+                    # Attempt to recognize speech
+                    command = self.recognizer.recognize_google(audio).lower()
+                    print(f"Command received: {command}")
+                    
+                    self.process_command(command)
+                    
+            except sr.UnknownValueError:
+                print("Could not understand audio")
+            except sr.RequestError as e:
+                print(f"Could not request results; {e}")
+                
+    def process_command(self, command):
+        """Process voice commands"""
+        if "stop" in command:
+            self.running = False
+            print("Stopping smart glasses...")
+        elif "take picture" in command:
+            self.take_picture()
+        # Add more commands as needed
+            
+    def take_picture(self):
+        """Capture and save a picture"""
+        timestamp = time.strftime("%Y%m%d-%H%M%S")
+        frame = self.camera.capture_array()
+        cv2.imwrite(f"capture_{timestamp}.jpg", frame)
+        print(f"Picture saved as capture_{timestamp}.jpg")
+        
+    def run(self):
+        """Main method to run the smart glasses"""
+        # Start camera thread
+        camera_thread = threading.Thread(target=self.start_camera)
+        camera_thread.start()
+        
+        # Start voice command thread
+        voice_thread = threading.Thread(target=self.listen_for_commands)
+        voice_thread.start()
+        
+        # Wait for threads to complete
+        camera_thread.join()
+        voice_thread.join()
+
+if __name__ == "__main__":
+    glasses = SmartGlasses()
+    glasses.run()
